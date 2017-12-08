@@ -15,7 +15,7 @@ body {
   font-family: MyFont;
   font-size: 50px;
   background: linear-gradient(to bottom, #abcdef, #f3f5f7);
-  background-image: url('./../images/head.png');
+  /* background-image: url('./../images/head.png'); */
 }
 
 .flexbox {

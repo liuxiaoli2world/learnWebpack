@@ -1,4 +1,5 @@
 const path = require('path');
+const webpack = require('webpack');
 // 引入“html-webpack-plugin”插件
 const htmlWebpackPlugin = require('html-webpack-plugin');
 // 引入“clean-webpack-plugin”插件
@@ -6,43 +7,32 @@ const cleanWebpackPlugin = require('clean-webpack-plugin');
 // 引入“extract-text-webpack-plugin”插件
 const extractTextWebpackPlugin = require('extract-text-webpack-plugin');
 // 添加css文件夹路径后自定义字体引入路径有问题 指定output中的publicPath即可
-// const extractCSS = new extractTextWebpackPlugin('[name]-one.css');
-// const extractLESS = new extractTextWebpackPlugin('[name]-two.css');
-var extractCSS = new extractTextWebpackPlugin('css/[name]-one.css');
-var extractLESS = new extractTextWebpackPlugin('css/[name]-two.css');
+const extractCSS = new extractTextWebpackPlugin('[name]-one.css');
+const extractLESS = new extractTextWebpackPlugin('[name]-two.css');
+const extractSASS = new extractTextWebpackPlugin('[name]-three.css');
+// const extractCSS = new extractTextWebpackPlugin('css/[name]-one.css');
+// const extractLESS = new extractTextWebpackPlugin('css/[name]-two.css');
+
+// 获取当前运行的模式
+const currentTarget = process.env.NODE_ENV;
+
+var debug,          // 是否是调试
+  devServer,      // 是否是热更新模式
+  minimize;       // 是否需要压缩
+
+if (currentTarget == 'production') { // 发布模式
+  debug = false, devServer = false, minimize = true;    
+} else if (currentTarget == 'development') { // 开发模式
+  debug = true, devServer = false, minimize = false;    
+} else if (currentTarget == 'dev-hrm') { // 热更新模式
+  debug = true, devServer = true, minimize = false;
+}
+
 module.exports = {
   // entry: path.resolve(__dirname, './src/js/app.js'), // 制定webpack打包的入口是app.js
   entry: {
     app: path.resolve(__dirname, './src/js/reactApp.js'),
     vendor: ['react', 'react-dom']
-  },
-  // 用server.js启动时只能是根路径（原因还不明确）
-  output: {
-    path: path.resolve(__dirname, './dist/'), // 指定打包后js文件放置的位置
-    filename: 'js/[name]-bundle-[hash].js', // 指定打包后的js名称，这个就是index.html最终引入的js名称
-    publicPath:  '/', //指定资源公共路径
-  },
-  // output: {
-  //   path: path.resolve(__dirname, './dist/portal/'), // 指定打包后js文件放置的位置
-  //   filename: 'js/[name]-bundle-[hash].js', // 指定打包后的js名称，这个就是index.html最终引入的js名称
-  //   publicPath:  '/portal', //指定资源公共路径
-  // },
-  devServer: {
-    // contentBase: path.join(__dirname, 'dist'),
-    // compress: true,
-    // // lazy: true,
-    // progress: true,
-    // historyApiFallback: true,
-    // port: 9000
-    port: 9000,
-    host: 'localhost',
-    historyApiFallback: true,
-    progress: true,
-    stats: {
-      colors: true
-    }
-    // noInfo: false,
-    // stats: 'minimal',
   },
   resolve: {
     extensions: ['.js', '.jsx', '.json']    
@@ -55,8 +45,7 @@ module.exports = {
         {
           loader: 'css-loader',
           options: {
-            importLoaders: 1,
-            modules: true
+            importLoaders: 1
           }
         }, // importLoaders解决由于css-loader处理文件导入的方式导致postcss-loader不能正常使用的问题
         {
@@ -71,8 +60,8 @@ module.exports = {
         {
           loader: 'css-loader',
           options: {
-            importLoaders: 1,
-            modules: true
+            importLoaders: 1
+            //modules: true //加了之后antd样式错乱
           }
         },
         {
@@ -83,8 +72,20 @@ module.exports = {
         } // less-loader放在最后，因为要最先加载（loader从右往左的加载规则）
       ])
     }, {
-      test: /\.js$/,
+      test: /.scss$/,
+      use: extractSASS.extract([
+        {loader: 'css-loader',options: {importLoaders: 1}},
+        {loader: 'postcss-loader'},
+        {loader: 'sass-loader'},
+      ])
+    }, {
+      test: /\.(js|jsx)$/,
       loader: 'babel-loader',
+      options: {
+        plugins: [
+          ['import', { 'libraryName': 'antd', 'style': true }],'transform-runtime'
+        ]
+      },
       exclude: /node_modules/
     }, {
       test: /\.(png|svg|jpg|gif)$/,
@@ -92,6 +93,9 @@ module.exports = {
     }, {
       test: /.(woff|woff2|eot|ttf|otf)$/,
       use: ['file-loader']
+    }, {
+      test: /.json$/,
+      use: ['json-loader']
     }]
   },
   plugins: [
@@ -107,7 +111,16 @@ module.exports = {
       }
     ),
     extractCSS,
-    extractLESS
+    extractLESS,
+    new webpack.DefinePlugin({
+      __DEV__: debug
+    }),
+    new webpack.ProvidePlugin({
+      '$': 'jquery',
+      'jQuery': 'jquery',
+      'window.$': 'jquery',
+      'window.jQuery': 'jquery'
+    }),
     // new webpack.optimize.UglifyJsPlugin({
     //   compress: {
     //     warnings: false,
